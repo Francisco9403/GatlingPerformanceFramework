@@ -1,0 +1,42 @@
+name: Gatling Load Test
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  performance-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run Gatling Simulation
+        run: mvn gatling:test
+        continue-on-error: true # Importante: Que siga aunque falle algún SLA para poder ver el reporte
+
+      # TRUCO: Gatling crea carpetas con timestamp (ej: simulation-202601...).
+      # Movemos el contenido a una carpeta fija 'report' para que el link siempre sea el mismo.
+      - name: Prepare Report
+        run: |
+          mkdir -p target/site/gatling
+          # Encuentra la carpeta generada y mueve su contenido
+          mv target/gatling/*/* target/site/gatling/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./target/site/gatling # Publicamos la carpeta fija
